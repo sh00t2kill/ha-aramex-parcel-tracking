@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from homeassistant.components.sensor import SensorEntity
+from datetime import date
+
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
+from homeassistant.const import UnitOfTime
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -23,6 +26,7 @@ async def async_setup_entry(
             AramexPickupSensor(coordinator, label),
             AramexDeliverySensor(coordinator, label),
             AramexETASensor(coordinator, label),
+            AramexETADaysSensor(coordinator, label),
             AramexScansSensor(coordinator, label),
         ]
     )
@@ -100,10 +104,17 @@ class AramexETASensor(_AramexBaseSensor):
     def __init__(self, coordinator: AramexCoordinator, label: str) -> None:
         super().__init__(coordinator, label, "eta", "ETA")
         self._attr_icon = "mdi:calendar-clock"
+        self._attr_device_class = SensorDeviceClass.DATE
 
     @property
-    def native_value(self) -> str | None:
-        return self.coordinator.data.get("DeliveryETADate")
+    def native_value(self) -> date | None:
+        raw = self.coordinator.data.get("DeliveryETADate")
+        if not raw:
+            return None
+        try:
+            return date(int(raw[6:10]), int(raw[3:5]), int(raw[0:2]))
+        except (ValueError, IndexError):
+            return None
 
     @property
     def extra_state_attributes(self) -> dict:
@@ -116,6 +127,28 @@ class AramexETASensor(_AramexBaseSensor):
                 "Message"
             ),
         }
+
+
+class AramexETADaysSensor(_AramexBaseSensor):
+    """Number of days until (or since) the ETA. Negative means overdue."""
+
+    def __init__(self, coordinator: AramexCoordinator, label: str) -> None:
+        super().__init__(coordinator, label, "eta_days", "ETA Days")
+        self._attr_icon = "mdi:calendar-arrow-right"
+        self._attr_device_class = SensorDeviceClass.DURATION
+        self._attr_state_class = SensorStateClass.MEASUREMENT
+        self._attr_native_unit_of_measurement = UnitOfTime.DAYS
+
+    @property
+    def native_value(self) -> int | None:
+        raw = self.coordinator.data.get("DeliveryETADate")
+        if not raw:
+            return None
+        try:
+            eta = date(int(raw[6:10]), int(raw[3:5]), int(raw[0:2]))
+        except (ValueError, IndexError):
+            return None
+        return (eta - date.today()).days
 
 
 class AramexScansSensor(_AramexBaseSensor):
