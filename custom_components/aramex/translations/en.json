@@ -1,0 +1,16 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Aramex Tracking",
+        "description": "Enter your Aramex parcel label number.",
+        "data": {
+          "label_number": "Label Number"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "This label number is already configured."
+    }
+  }
+}
